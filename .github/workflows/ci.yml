@@ -1,19 +1,36 @@
-name: Build and Run Docker
+name: Simple Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build Docker image
-        run: docker build -t demo-ci .
+      - name: Copy to Server
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          source: "."
+          target: "/home/ubuntu/app"
 
-      - name: Run Docker container
-        run: docker run -d -p 3000:3000 demo-ci
+      - name: Restart Docker Container
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_KEY }}
+          script: |
+            cd /home/ubuntu/app
+            docker build -t demoapp .
+            docker stop demoapp || true
+            docker rm demoapp || true
+            docker run -d -p 3000:3000 --name demoapp demoapp
